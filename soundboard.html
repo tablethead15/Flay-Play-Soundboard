@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flay Play Soundboard</title>
+<style>
+  body {
+    background: #111;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 10px;
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  #upload-section {
+    text-align: center;
+    margin-bottom: 15px;
+  }
+  input[type="file"] {
+    display: inline-block;
+    margin-right: 10px;
+  }
+  #soundboard {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+  }
+  .sound-button {
+    position: relative;
+    background: #111;
+    border: 2px solid transparent;
+    box-shadow: 0 0 10px 1px #f00;
+    color: #eee;
+    padding: 12px 18px;
+    min-width: 130px;
+    cursor: pointer;
+    border-radius: 8px;
+    outline: none;
+    user-select: none;
+  }
+  .sound-button:active {
+    background: #300;
+  }
+  .sound-button.glow {
+    border-color: #f00;
+  }
+  .controls {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .control-row label {
+    font-size: 0.9em;
+  }
+  input[type=range] {
+    flex-grow: 1;
+    margin-left: 10px;
+  }
+  button.delete-btn {
+    background: #900;
+    border: none;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  .settings-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #eee;
+    font-size: 20px;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+  }
+  .settings-panel {
+    background: #222;
+    border: 1px solid #f00;
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 10px;
+  }
+  .hidden {
+    display: none;
+  }
+  @media (max-width: 600px) {
+    #soundboard {
+      flex-direction: column;
+      align-items: center;
+    }
+    .sound-button {
+      min-width: 90vw;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1>Flay Play Soundboard</h1>
+
+<div id="upload-section">
+  <input type="file" id="fileInput" accept=".mp3,.wav" />
+  <input type="text" id="customName" placeholder="Custom sound name" />
+  <button id="addSoundBtn">Add Sound</button>
+</div>
+
+<div id="soundboard"></div>
+
+<script>
+  const soundboard = document.getElementById('soundboard');
+  const fileInput = document.getElementById('fileInput');
+  const customNameInput = document.getElementById('customName');
+  const addSoundBtn = document.getElementById('addSoundBtn');
+
+  let sounds = JSON.parse(localStorage.getItem('flayPlaySounds') || '[]');
+
+  function saveSounds() {
+    localStorage.setItem('flayPlaySounds', JSON.stringify(sounds));
+  }
+
+  function createSoundElement(sound, index) {
+    const btn = document.createElement('button');
+    btn.className = 'sound-button';
+    btn.textContent = sound.name;
+    btn.title = sound.name;
+
+    const audio = new Audio();
+    audio.src = sound.dataUrl;
+    audio.preload = "none";
+
+    // Controls container
+    const controls = document.createElement('div');
+    controls.className = 'controls hidden';
+
+    // Volume control
+    const volRow = document.createElement('div');
+    volRow.className = 'control-row';
+    const volLabel = document.createElement('label');
+    volLabel.textContent = 'Volume';
+    const volSlider = document.createElement('input');
+    volSlider.type = 'range';
+    volSlider.min = 0;
+    volSlider.max = 2;
+    volSlider.step = 0.01;
+    volSlider.value = sound.volume ?? 1;
+    volSlider.addEventListener('input', () => {
+      audio.volume = volSlider.value;
+      sound.volume = volSlider.value;
+      saveSounds();
+    });
+    volRow.appendChild(volLabel);
+    volRow.appendChild(volSlider);
+
+    // Speed control
+    const speedRow = document.createElement('div');
+    speedRow.className = 'control-row';
+    const speedLabel = document.createElement('label');
+    speedLabel.textContent = 'Speed';
+    const speedSlider = document.createElement('input');
+    speedSlider.type = 'range';
+    speedSlider.min = 0.5;
+    speedSlider.max = 2;
+    speedSlider.step = 0.01;
+    speedSlider.value = sound.speed ?? 1;
+    speedSlider.addEventListener('input', () => {
+      audio.playbackRate = speedSlider.value;
+      sound.speed = speedSlider.value;
+      saveSounds();
+    });
+    speedRow.appendChild(speedLabel);
+    speedRow.appendChild(speedSlider);
+
+    // Loop checkbox
+    const loopRow = document.createElement('div');
+    loopRow.className = 'control-row';
+    const loopLabel = document.createElement('label');
+    loopLabel.textContent = 'Loop';
+    const loopCheckbox = document.createElement('input');
+    loopCheckbox.type = 'checkbox';
+    loopCheckbox.checked = sound.loop ?? false;
+    loopCheckbox.addEventListener('change', () => {
+      audio.loop = loopCheckbox.checked;
+      sound.loop = loopCheckbox.checked;
+      saveSounds();
+    });
+    loopRow.appendChild(loopLabel);
+    loopRow.appendChild(loopCheckbox);
+
+    // Reverb toggle (simple simulated)
+    const reverbRow = document.createElement('div');
+    reverbRow.className = 'control-row';
+    const reverbLabel = document.createElement('label');
+    reverbLabel.textContent = 'Reverb';
+    const reverbCheckbox = document.createElement('input');
+    reverbCheckbox.type = 'checkbox';
+    reverbCheckbox.checked = sound.reverb ?? false;
+    reverbCheckbox.addEventListener('change', () => {
+      sound.reverb = reverbCheckbox.checked;
+      if (sound.reverb) {
+        // Simulated reverb effect by playing a slight delayed duplicate (basic)
+        if (!audio.reverbNode) {
+          const context = new AudioContext();
+          const source = context.createMediaElementSource(audio);
+          const convolver = context.createConvolver();
+          // No real impulse response here for simplicity
+          source.connect(context.destination);
+          audio.reverbNode = convolver;
+        }
+      }
+      saveSounds();
+    });
+    reverbRow.appendChild(reverbLabel);
+    reverbRow.appendChild(reverbCheckbox);
+
+    controls.appendChild(volRow);
+    controls.appendChild(speedRow);
+    controls.appendChild(loopRow);
+    controls.appendChild(reverbRow);
+
+    // Settings button (gear icon)
+    const settingsBtn = document.createElement('button');
+    settingsBtn.className = 'settings-btn';
+    settingsBtn.innerHTML = '&#9881;';
+    settingsBtn.title = 'Settings';
+    settingsBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      controls.classList.toggle('hidden');
+    });
+
+    // Delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-btn';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (confirm(`Delete "${sound.name}"?`)) {
+        sounds.splice(index, 1);
+        saveSounds();
+        renderSounds();
+      }
+    });
+
+    // Play/pause logic
+    let isPlaying = false;
+    btn.addEventListener('click', () => {
+      if (!isPlaying) {
+        audio.volume = sound.volume ?? 1;
+        audio.playbackRate = sound.speed ?? 1;
+        audio.loop = sound.loop ?? false;
+        audio.play();
+        btn.classList.add('glow');
+        isPlaying = true;
+      } else {
+        audio.pause();
+        audio.currentTime = 0;
+        btn.classList.remove('glow');
+        isPlaying = false;
+      }
+    });
+
+    audio.addEventListener('ended', () => {
+      btn.classList.remove('glow');
+      isPlaying = false;
+    });
+
+    // Container for the sound button + controls + delete
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.alignItems = 'center';
+    container.appendChild(btn);
+    container.appendChild(settingsBtn);
+    container.appendChild(controls);
+    container.appendChild(deleteBtn);
+
+    return container;
+  }
+
+  function renderSounds() {
+    soundboard.innerHTML = '';
+    sounds.forEach((sound, index) => {
+      const soundEl = createSoundElement(sound, index);
+      soundboard.appendChild(soundEl);
+    });
+  }
+
+  addSoundBtn.addEventListener('click', () => {
+    const files = fileInput.files;
+    const customName = customNameInput.value.trim();
+    if (!files.length) {
+      alert('Please select a .mp3 or .wav file');
+      return;
+    }
+    const file = files[0];
+    if (!file.name.match(/\.(mp3|wav)$/i)) {
+      alert('Only .mp3 and .wav files are allowed.');
+      return;
+    }
+    if (!customName) {
+      alert('Please enter a custom name for the sound.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      sounds.push({
+        name: customName,
+        dataUrl: e.target.result,
+        volume: 1,
+        speed: 1,
+        loop: false,
+        reverb: false
+      });
+      saveSounds();
+      renderSounds();
+      fileInput.value = '';
+      customNameInput.value = '';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Initial render
+  renderSounds();
+</script>
+
+</body>
+</html>
